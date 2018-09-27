@@ -1,9 +1,5 @@
 (in-package :viseq)
 
-;; TODO:
-;; - Order might matter more than I though, so might be a compiler
-;;   of some sort would help, so I can define the order...
-
 (defvar *video-queue* NIL)
 (defvar *text-queue* NIL)
 (defvar *rotation-matrix* (cv:create-mat 2 3 5))
@@ -25,10 +21,10 @@
   (pos 0 :type integer))
 
 (defstruct ctext
-  name
-  text
-  (xpos 0)
-  (ypos 0))
+  (name NIL :type keyword)
+  (text "" :type string)
+  (xpos 0 :type unsigned-byte)
+  (ypos 0 :type unsigned-byte))
 
 (defun queue-any-visible-p ()
   (member-if (lambda (x) (cvideo-is-visible x)) *video-queue*))
@@ -41,8 +37,7 @@
   (declare (keyword name) (alexandria:non-negative-integer secs))
   (let ((obj (queue-find name)))
     (when obj
-      (with-slots (capture) obj
-        (skip-to capture secs)))))
+      (skip-to (cvideo-capture obj) secs))))
 
 (defun queue-delete (name)
   (declare (keyword name))
@@ -53,12 +48,14 @@
 (defun push-ctext (name text &optional (xpos 0) (ypos 0))
   (declare (keyword name) (string text)
            (unsigned-byte xpos ypos))
-  (let ((obj (queue-find name *text-queue*)))
+  (let ((obj (find name *text-queue*
+                   :test (lambda (x y) (eq x (ctext-name y))))))
     (if obj
         (setf (ctext-text obj) text
               (ctext-xpos obj) xpos
               (ctext-ypos obj) ypos)
-        (push (make-ctext name text xpos ypos)
+        (push (make-ctext :name name :text text
+                          :xpos xpos :ypos ypos)
               *text-queue*))))
 
 (defun push-cvideo
@@ -129,7 +126,7 @@
   (declare (optimize (speed 3) (debug 0) (safety 0)))
   (if (= (the integer (cv:wait-key 30)) 27)
       'done
-      (let ((size 40)
+      (let ((size 100)
             (videos))
         (cv:with-ipl-images
             ((buf (cv:size size size) cv:+ipl-depth-8u+ 3)
@@ -180,10 +177,12 @@
                      (cv:copy buf fin))
                  (setf videos T))))
           
-          ;; (loop :for text-obj :in *text-queue* :do
-          ;;    (with-slots (text xpos ypos) text-obj
-          ;;      (make-text fin text xpos ypos
-          ;;                 :red 240 :green 240 :blue 240)))
+          (loop :for text-obj :in *text-queue* :do
+             (make-text fin
+                        (ctext-text text-obj)
+                        (ctext-xpos text-obj)
+                        (ctext-ypos text-obj)
+                        :red 240 :green 240 :blue 240))
                  
           (if videos
               (cv:show-image "multi" fin)
@@ -198,6 +197,4 @@
        (event-loop)
        (when (eq 'done (render))
          (return)))))
-
-;; --------------------------------------------------
 
