@@ -19,8 +19,8 @@
   (repeat 1 :type unsigned-byte)
   (rotation 0f0 :type single-float)
   (scale 1f0 :type single-float)
-  (xpos 0 :type integer)
-  (ypos 0 :type integer)
+  (xpos 0 :type unsigned-byte)
+  (ypos 0 :type unsigned-byte)
   (flip -2 :type integer)
   (pos 0 :type integer))
 
@@ -71,9 +71,8 @@
        (scale 1f0) (ypos 0) (xpos 0))
   (declare (keyword name) (string file)
            (type single-float rotation scale)
-           (type (or unsigned-byte null) repeat)
+           (type unsigned-byte repeat erode xpos ypos)
            (type (integer -2 1) flip)
-           (unsigned-byte xpos ypos)
            (boolean glitch hsv is-negative))
   (assert (uiop:file-exists-p file))
   ;; NOT add if already if queue
@@ -130,7 +129,7 @@
   (declare (optimize (speed 3) (debug 0) (safety 0)))
   (if (= (the integer (cv:wait-key 30)) 27)
       'done
-      (let ((size 200)
+      (let ((size 40)
             (videos))
         (cv:with-ipl-images
             ((buf (cv:size size size) cv:+ipl-depth-8u+ 3)
