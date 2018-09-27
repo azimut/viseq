@@ -8,50 +8,34 @@
 (defvar *text-queue* NIL)
 (defvar *rotation-matrix* (cv:create-mat 2 3 5))
 
-(defclass cvideo ()
-  ((name        :initarg :name)
-   (is-visible  :initarg :is-visible)
-   (is-negative :initarg :is-negative)
-   (capture     :initarg :capture)
-   (hsv         :initarg :hsv)
-   (erode       :initarg :erode)
-   (glitch      :initarg :glitch)
-   (repeat      :initarg :repeat)
-   (rotation    :initarg :rotation)
-   (xpos        :initarg :xpos)
-   (ypos        :initarg :ypos)
-   (flip        :initarg :flip)
-   (pos         :initarg :pos)
-   (scale       :initarg :scale))
-  (:default-initargs
-   :name (error "NAME required")
-    :is-visible T
-    :is-negative NIL
-    :capture NIL
-    :hsv NIL
-    :pos 0
-    :erode NIL
-    :glitch NIL
-    :repeat NIL
-    :rotation NIL
-    :xpos NIL
-    :flip NIL
-    :scale NIL))
+(defstruct cvideo
+  name
+  (is-visible T)
+  is-negative
+  capture
+  hsv
+  erode
+  glitch
+  repeat
+  rotation
+  xpos
+  ypos
+  flip
+  (pos 0)
+  scale)
 
-(defclass ctext ()
-  ((name      :initarg :name)
-   (text      :initarg :text)
-   (xpos      :initarg :xpos :initform 0)
-   (ypos      :initarg :ypos :initform 0))
-  (:default-initargs
-   :name (error "NAME required")))
+(defstruct ctext
+  name
+  text
+  (xpos 0)
+  (ypos 0))
 
 (defun queue-any-visible-p ()
-  (member-if (lambda (x) (slot-value x 'is-visible)) *video-queue*))
+  (member-if (lambda (x) (cvideo-is-visible x)) *video-queue*))
 
 (defun queue-find (name &optional (queue *video-queue*))
   (find name queue
-        :test (lambda (x y) (eq x (slot-value y 'name)))))
+        :test (lambda (x y) (eq x (cvideo-name y)))))
 
 (defun queue-skip-to (name secs)
   (declare (keyword name) (alexandria:non-negative-integer secs))
@@ -64,25 +48,20 @@
   (declare (keyword name))
   (let ((obj (queue-find name)))
     (when obj
-      (with-slots (is-visible) obj
-        (setf is-visible NIL)))))
+      (setf (cvideo-is-visible obj) NIL))))
 
-(defun make-ctext (name text &optional (xpos 0) (ypos 0))
+(defun push-ctext (name text &optional (xpos 0) (ypos 0))
   (declare (keyword name) (string text)
            (unsigned-byte xpos ypos))
   (let ((obj (queue-find name *text-queue*)))
     (if obj
-        (setf (slot-value obj 'text) text
-              (slot-value obj 'xpos) xpos
-              (slot-value obj 'ypos) ypos)
-        (push (make-instance 'ctext
-                             :name name
-                             :text text
-                             :xpos xpos
-                             :ypos ypos)
+        (setf (ctext-text obj) text
+              (ctext-xpos obj) xpos
+              (ctext-ypos obj) ypos)
+        (push (make-ctext name text xpos ypos)
               *text-queue*))))
 
-(defun make-cvideo
+(defun push-cvideo
     (name file
      &key
        hsv glitch (flip -2 flip-p) erode repeat
@@ -101,21 +80,20 @@
   (let ((obj (queue-find name)))
     (if obj
         (progn
-          (setf (slot-value obj 'is-visible) T
-                (slot-value obj 'hsv) hsv
-                (slot-value obj 'glitch) glitch
-                (slot-value obj 'erode) erode
-                (slot-value obj 'rotation) rotation
-                (slot-value obj 'scale) scale
-                (slot-value obj 'xpos) xpos
-                (slot-value obj 'ypos) ypos
-                (slot-value obj 'flip) flip
-                (slot-value obj 'is-negative) is-negative
-                (slot-value obj 'pos) pos
-                (slot-value obj 'repeat) repeat)) 
-        (let ((capture
-               (make-instance
-                'cvideo
+          (setf (cvideo-is-visible obj) T
+                (cvideo-hsv obj) hsv
+                (cvideo-glitch obj) glitch
+                (cvideo-erode obj) erode
+                (cvideo-rotation obj) rotation
+                (cvideo-scale obj) scale
+                (cvideo-xpos obj) xpos
+                (cvideo-ypos obj) ypos
+                (cvideo-flip obj) flip
+                (cvideo-is-negative obj) is-negative
+                (cvideo-pos obj) pos
+                (cvideo-repeat obj) repeat)) 
+        (let ((cvideo
+               (make-cvideo
                 :name name
                 :capture (cv:create-file-capture file)
                 :hsv hsv
@@ -128,7 +106,7 @@
                 :scale scale
                 :xpos xpos
                 :ypos ypos)))
-          (push capture *video-queue*)
+          (push cvideo *video-queue*)
           T))))
 
 (defun initialize ()
@@ -136,18 +114,17 @@
   ;; Clear queue
   (when *video-queue*
     (loop :for video :in *video-queue* :do
-       (with-slots (capture) video
-         (cv:release-capture capture)))
+       (cv:release-capture (cvideo-capture video)))
     (setf *video-queue* NIL)))
 
-;;(defun event-loop ())
-(defun event-loop ()
-  (loop :for video :in *video-queue* :do
-     (when (eq (slot-value video 'name) :bunny)
-       (with-slots (xpos y pos capture
-                    hsv glitch rotation scale)
-           video
-         (setf rotation (sinr 20 10 5))))))
+(defun event-loop ())
+;; (defun event-loop ()
+;;   (loop :for video :in *video-queue* :do
+;;      (when (eq (slot-value video 'name) :bunny)
+;;        (with-slots (xpos y pos capture
+;;                     hsv glitch rotation scale)
+;;            video
+;;          (setf rotation (sinr 20 10 5))))))
 
 (defun render ()
   (declare (optimize (speed 3)))
@@ -162,28 +139,28 @@
           (loop
              :for video :in *video-queue*
              :do
-             (with-slots
-                   (is-visible
-                    capture
-                    erode
-                    repeat
-                    flip
-                    is-negative
-                    xpos ypos
-                    hsv glitch
-                    pos
-                    rotation scale)
-                 video
+             (let ((is-visible (cvideo-is-visible video))
+                   (capture (cvideo-capture video))
+                   (erode (cvideo-erode video))
+                   (repeat (cvideo-repeat video))
+                   (flip (cvideo-flip video))
+                   (is-negative (cvideo-is-negative video))
+                   (xpos (cvideo-xpos video))
+                   (ypos (cvideo-ypos video))
+                   (hsv (cvideo-hsv video))
+                   (glitch (cvideo-glitch video))
+                   (pos (cvideo-pos video))
+                   (rotation (cvideo-rotation video))
+                   (scale (cvideo-scale video)))
                (when is-visible
-                 (when capture
-                   (if repeat
-                       (cv:with-ipl-images
-                           ((small (cv:size 50 50) cv:+ipl-depth-8u+ 3))
-                         (cv:resize (get-frame capture 0 pos) small)
-                         (cv:repeat small buf))
-                       (cv:resize (get-frame capture 0 pos) buf))
-                   (if (not (= (the integer pos) 0))
-                       (setf pos 0)))
+                 (if repeat
+                     (cv:with-ipl-images
+                         ((small (cv:size 50 50) cv:+ipl-depth-8u+ 3))
+                       (cv:resize (get-frame capture 0 pos) small)
+                       (cv:repeat small buf))
+                     (cv:resize (get-frame capture 0 pos) buf))
+                 (if (not (= (the integer pos) 0))
+                     (setf pos 0))
                  ;; rotation, scale, move
                  (when (or (> (the single-float rotation) 0f0)
                            (not (= (the single-float scale) 1f0)))
@@ -204,10 +181,10 @@
                      (cv:copy buf fin))
                  (setf videos T))))
           
-          (loop :for text-obj :in *text-queue* :do
-             (with-slots (text xpos ypos) text-obj
-               (make-text fin text xpos ypos
-                          :red 240 :green 240 :blue 240)))
+          ;; (loop :for text-obj :in *text-queue* :do
+          ;;    (with-slots (text xpos ypos) text-obj
+          ;;      (make-text fin text xpos ypos
+          ;;                 :red 240 :green 240 :blue 240)))
                  
           (if videos
               (cv:show-image "multi" fin)

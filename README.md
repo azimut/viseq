@@ -8,15 +8,15 @@ Using OpenCV's Common Lisp bindings at [byulparan/common-cv](https://github.com/
 
 Don't.
 
-You send some (make-cvideo) commands to make one(or more) video(s) appear and call (make-cvideo) again to update some of the state of the video. Like add an effect or skip to time in seconds. Finally you have (queue-delete) to delete the video (which doesn't actually delete anything just stops rendering the video but the underlaying capture resource is still open to avoid locking).
+You send some (push-cvideo) commands to make one(or more) video(s) appear and call (push-cvideo) again to update some of the state of the video. Like add an effect or skip to time in seconds. Finally you have (queue-delete) to delete the video (which doesn't actually delete anything just stops rendering the video but the underlaying capture resource is still open to avoid locking).
 
 
 ```
 > (ql:quickload :viseq)
 > (in-package :viseq)
 > (show-videos)
-> (make-cvideo :bit "/home/sendai/clips/bitcoin.mp4")
-> (make-cvideo :bit "/home/sendai/clips/bitcoin.mp4" :scale 2f0)
+> (push-cvideo :bit "/home/sendai/clips/bitcoin.mp4")
+> (push-cvideo :bit "/home/sendai/clips/bitcoin.mp4" :scale 2f0)
 > (queue-delete :bit)
 ```
 
