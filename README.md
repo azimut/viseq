@@ -24,6 +24,8 @@ You send some (push-cvideo) commands to make one(or more) video(s) appear and ca
 
 There is god object that has flags/states that are put on a queue, that queue is transversed each frame and the properties are evaluated depending of flags or properties of each object.
 
+You can recompile the (render) function to test things out there in real-time.
+
 ## See also
 
 * https://gitlab.com/Theemacsshibe/cl-vep/
