@@ -1,8 +1,9 @@
 (uiop:define-package viseq
     (:use #:cl)
-  (:export #:queue-delete
-           #:push-cvideo
+  (:export #:push-cvideo
            #:push-ctext
-           #:initialize
+           #:delete-cvideo
+           #:delete-ctext
+           #:reset
            #:show-videos
            #:render))

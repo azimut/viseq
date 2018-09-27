@@ -8,7 +8,7 @@ Using OpenCV's Common Lisp bindings at [byulparan/common-cv](https://github.com/
 
 Don't.
 
-You send some (push-cvideo) commands to make one(or more) video(s) appear and call (push-cvideo) again to update some of the state of the video. Like add an effect or skip to time in seconds. Finally you have (queue-delete) to delete the video (which doesn't actually delete anything just stops rendering the video but the underlaying capture resource is still open to avoid locking).
+You send some (push-cvideo) commands to make one(or more) video(s) appear and call (push-cvideo) again to update some of the state of the video. Like add an effect or skip to time in seconds. Finally you have (delete-cvideo) to delete the video (which doesn't actually delete anything just stops rendering the video but the underlaying capture resource is still open to avoid locking).
 
 
 ```
@@ -17,7 +17,7 @@ You send some (push-cvideo) commands to make one(or more) video(s) appear and ca
 > (show-videos)
 > (push-cvideo :bit "/home/sendai/clips/bitcoin.mp4")
 > (push-cvideo :bit "/home/sendai/clips/bitcoin.mp4" :scale 2f0)
-> (queue-delete :bit)
+> (delete-cvideo :bit)
 ```
 
 ## Dev note
@@ -34,5 +34,6 @@ You can recompile the (render) function to test things out there in real-time.
 
 - Add continuable
 - Effects (? Face recognition(?
+- Multiple windows support
 - Might be write a DSL to define different orders of when an effect is applied (?
 - Frame manipulations (those are hard as there is no numpy for Lisp and need to be written on lisp through cffi calls)

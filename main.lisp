@@ -8,17 +8,18 @@
   (name NIL :type keyword)
   (is-visible T :type boolean)
   (is-negative NIL :type boolean)
-  (hsv NIL :type boolean)
-  (glitch NIL :type boolean)
+  (is-freezed NIL :type boolean)
   (capture NIL :type cffi:foreign-pointer)
   (erode 0 :type unsigned-byte)
+  (flip -2 :type integer)
+  (glitch NIL :type boolean)
+  (hsv NIL :type boolean)
+  (pos 0 :type integer)
   (repeat 1 :type unsigned-byte)
   (rotation 0f0 :type single-float)
   (scale 1f0 :type single-float)
   (xpos 0 :type unsigned-byte)
-  (ypos 0 :type unsigned-byte)
-  (flip -2 :type integer)
-  (pos 0 :type integer))
+  (ypos 0 :type unsigned-byte))
 
 (defstruct ctext
   (name NIL :type keyword)
@@ -26,20 +27,11 @@
   (xpos 0 :type unsigned-byte)
   (ypos 0 :type unsigned-byte))
 
-(defun queue-any-visible-p ()
-  (member-if (lambda (x) (cvideo-is-visible x)) *video-queue*))
-
 (defun queue-find (name &optional (queue *video-queue*))
   (find name queue
         :test (lambda (x y) (eq x (cvideo-name y)))))
 
-(defun queue-skip-to (name secs)
-  (declare (keyword name) (alexandria:non-negative-integer secs))
-  (let ((obj (queue-find name)))
-    (when obj
-      (skip-to (cvideo-capture obj) secs))))
-
-(defun queue-delete (name)
+(defun delete-cvideo (name)
   (declare (keyword name))
   (let ((obj (queue-find name)))
     (when obj
@@ -58,11 +50,18 @@
                           :xpos xpos :ypos ypos)
               *text-queue*))))
 
+(defun delete-ctext (name)
+  (setf *text-queue*
+        (delete name *text-queue*
+                :test (lambda (x y) (eq x (ctext-name y)))))
+  NIL)
+
 (defun push-cvideo
     (name file
      &key
        hsv glitch (flip -2 flip-p) (erode 0) (repeat 1)
        is-negative
+       is-freezed
        (pos 0)
        (rotation 0f0)
        (scale 1f0) (ypos 0) (xpos 0))
@@ -70,34 +69,36 @@
            (type single-float rotation scale)
            (type unsigned-byte repeat erode xpos ypos)
            (type (integer -2 1) flip)
-           (boolean glitch hsv is-negative))
+           (boolean glitch hsv is-negative is-freezed))
   (assert (uiop:file-exists-p file))
   ;; NOT add if already if queue
   (let ((obj (queue-find name)))
     (if obj
         (progn
           (setf (cvideo-is-visible obj) T
-                (cvideo-hsv obj) hsv
-                (cvideo-glitch obj) glitch
+                (cvideo-is-negative obj) is-negative
+                (cvideo-is-freezed obj) is-freezed                
                 (cvideo-erode obj) erode
+                (cvideo-flip obj) flip
+                (cvideo-glitch obj) glitch
+                (cvideo-hsv obj) hsv
+                (cvideo-pos obj) pos
+                (cvideo-repeat obj) repeat
                 (cvideo-rotation obj) rotation
                 (cvideo-scale obj) scale
                 (cvideo-xpos obj) xpos
-                (cvideo-ypos obj) ypos
-                (cvideo-flip obj) flip
-                (cvideo-is-negative obj) is-negative
-                (cvideo-pos obj) pos
-                (cvideo-repeat obj) repeat)) 
+                (cvideo-ypos obj) ypos))
         (let ((cvideo
                (make-cvideo
                 :name name
-                :capture (cv:create-file-capture file)
-                :hsv hsv
-                :erode erode
-                :glitch glitch
                 :is-negative is-negative
-                :repeat repeat
+                :is-freezed is-freezed
+                :capture (cv:create-file-capture file)
+                :erode erode
                 :flip flip                
+                :glitch glitch
+                :hsv hsv
+                :repeat repeat
                 :rotation rotation
                 :scale scale
                 :xpos xpos
@@ -105,9 +106,9 @@
           (push cvideo *video-queue*)
           T))))
 
-(defun initialize ()
+(defun reset ()
+  ;; Clear queues
   (setf *text-queue* NIL)
-  ;; Clear queue
   (when *video-queue*
     (loop :for video :in *video-queue* :do
        (cv:release-capture (cvideo-capture video)))
@@ -126,7 +127,7 @@
   (declare (optimize (speed 3) (debug 0) (safety 0)))
   (if (= (the integer (cv:wait-key 30)) 27)
       'done
-      (let ((size 100)
+      (let ((size 200)
             (videos))
         (cv:with-ipl-images
             ((buf (cv:size size size) cv:+ipl-depth-8u+ 3)
@@ -136,32 +137,35 @@
              :for video :in *video-queue*
              :do
              (let ((is-visible (cvideo-is-visible video))
+                   (is-negative (cvideo-is-negative video))
+                   (is-freezed (cvideo-is-freezed video))
                    (capture (cvideo-capture video))
                    (erode (cvideo-erode video))
-                   (repeat (cvideo-repeat video))
                    (flip (cvideo-flip video))
-                   (is-negative (cvideo-is-negative video))
-                   (xpos (cvideo-xpos video))
-                   (ypos (cvideo-ypos video))
-                   (hsv (cvideo-hsv video))
                    (glitch (cvideo-glitch video))
+                   (hsv (cvideo-hsv video))
                    (pos (cvideo-pos video))
+                   (repeat (cvideo-repeat video))
                    (rotation (cvideo-rotation video))
-                   (scale (cvideo-scale video)))
+                   (scale (cvideo-scale video))
+                   (xpos (cvideo-xpos video))
+                   (ypos (cvideo-ypos video)))
                (when is-visible
-                 (if (not (= repeat 1))
+                 (unless is-freezed
+                   (setf (cvideo-pos video) 0))
+                 (if (= repeat 1)
+                     (cv:resize (get-frame capture 0 pos) buf)
                      (cv:with-ipl-images
                          ((small (cv:size 50 50) cv:+ipl-depth-8u+ 3))
                        (cv:resize (get-frame capture 0 pos) small)
-                       (cv:repeat small buf))
-                     (cv:resize (get-frame capture 0 pos) buf))
-                 (if (not (= pos 0))
-                     (setf pos 0))
+                       (cv:repeat small buf))) 
                  ;; rotation, scale, move
                  (when (or (> rotation 0f0)
                            (not (= scale 1f0)))
                    (2d-rotate *rotation-matrix* xpos ypos rotation scale)
                    (cv:warp-affine buf buf *rotation-matrix*))
+                 (when (and (not is-freezed) (not (= pos 0)))
+                   (setf (cvideo-pos video) 0))
                  ;; ;; hls - bgr555 - bgr565;; NOT
                  ;; ;; rgb - lab - luv - xyz - hsv - ycrcb ;; YES
                  (when (> (the (integer -2 1) flip) -2)
@@ -178,7 +182,7 @@
                  (setf videos T))))
           
           (loop :for text-obj :in *text-queue* :do
-             (make-text fin
+             (draw-text fin
                         (ctext-text text-obj)
                         (ctext-xpos text-obj)
                         (ctext-ypos text-obj)

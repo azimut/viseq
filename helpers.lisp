@@ -123,8 +123,7 @@
                 (cv:point x1 y1) (cv:point x2 y2)
                 (cv:scalar blue green red)))
 
-(defun make-text
-    (img text x y &key (red 0) (green 0) (blue 0))
+(defun draw-text (img text x y &key (red 0) (green 0) (blue 0))
   "cv:put-text wrapper"
   (declare (type fixnum red green blue x y)
            (type string text)
