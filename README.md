@@ -1,6 +1,6 @@
 # viseq
 
-> Poor's man VIdeo SEQuencer
+> poor man's VIdeo SEQuencer
 
 Using OpenCV's Common Lisp bindings at [byulparan/common-cv](https://github.com/byulparan/common-cv)
 
