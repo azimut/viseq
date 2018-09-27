@@ -9,20 +9,20 @@
 (defvar *rotation-matrix* (cv:create-mat 2 3 5))
 
 (defstruct cvideo
-  name
-  (is-visible T)
-  is-negative
-  capture
-  hsv
-  erode
-  glitch
-  repeat
-  rotation
-  xpos
-  ypos
-  flip
-  (pos 0)
-  scale)
+  (name NIL :type keyword)
+  (is-visible T :type boolean)
+  (is-negative NIL :type boolean)
+  (hsv NIL :type boolean)
+  (glitch NIL :type boolean)
+  (capture NIL :type cffi:foreign-pointer)
+  (erode 0 :type unsigned-byte)
+  (repeat 1 :type unsigned-byte)
+  (rotation 0f0 :type single-float)
+  (scale 1f0 :type single-float)
+  (xpos 0 :type integer)
+  (ypos 0 :type integer)
+  (flip -2 :type integer)
+  (pos 0 :type integer))
 
 (defstruct ctext
   name
@@ -64,7 +64,7 @@
 (defun push-cvideo
     (name file
      &key
-       hsv glitch (flip -2 flip-p) erode repeat
+       hsv glitch (flip -2 flip-p) (erode 0) (repeat 1)
        is-negative
        (pos 0)
        (rotation 0f0)
@@ -127,7 +127,7 @@
 ;;          (setf rotation (sinr 20 10 5))))))
 
 (defun render ()
-  (declare (optimize (speed 3)))
+  (declare (optimize (speed 3) (debug 0) (safety 0)))
   (if (= (the integer (cv:wait-key 30)) 27)
       'done
       (let ((size 200)
@@ -153,25 +153,25 @@
                    (rotation (cvideo-rotation video))
                    (scale (cvideo-scale video)))
                (when is-visible
-                 (if repeat
+                 (if (not (= repeat 1))
                      (cv:with-ipl-images
                          ((small (cv:size 50 50) cv:+ipl-depth-8u+ 3))
                        (cv:resize (get-frame capture 0 pos) small)
                        (cv:repeat small buf))
                      (cv:resize (get-frame capture 0 pos) buf))
-                 (if (not (= (the integer pos) 0))
+                 (if (not (= pos 0))
                      (setf pos 0))
                  ;; rotation, scale, move
-                 (when (or (> (the single-float rotation) 0f0)
-                           (not (= (the single-float scale) 1f0)))
+                 (when (or (> rotation 0f0)
+                           (not (= scale 1f0)))
                    (2d-rotate *rotation-matrix* xpos ypos rotation scale)
                    (cv:warp-affine buf buf *rotation-matrix*))
-                 ;; hls - bgr555 - bgr565;; NOT
-                 ;; rgb - lab - luv - xyz - hsv - ycrcb ;; YES
+                 ;; ;; hls - bgr555 - bgr565;; NOT
+                 ;; ;; rgb - lab - luv - xyz - hsv - ycrcb ;; YES
                  (when (> (the (integer -2 1) flip) -2)
                    (cv:flip buf buf flip))
-                 (when erode
-                   (cv:erode buf buf (cffi-sys:null-pointer) erode))
+                 ;; (when (not (= erode 0))
+                 ;;   (cv:erode buf buf (cffi-sys:null-pointer) erode))
                  (when is-negative
                    (cv:not buf buf))
                  (when hsv
