@@ -29,6 +29,7 @@ You can recompile the (render) function to test things out there in real-time.
 ## See also
 
 * https://gitlab.com/Theemacsshibe/cl-vep/
+* https://github.com/W-Net-AI/LISP-CV
 
 ## TODO's
 

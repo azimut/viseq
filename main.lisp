@@ -3,6 +3,7 @@
 (defvar *video-queue* NIL)
 (defvar *text-queue* NIL)
 (defvar *rotation-matrix* (cv:create-mat 2 3 5))
+(defparameter *frame-size* 100)
 
 (defstruct cvideo
   (name NIL :type keyword)
@@ -131,15 +132,15 @@
   (declare (optimize (speed 3) (debug 0) (safety 0)))
   (if (= (the integer (cv:wait-key 30)) 27)
       'done
-      (let ((size 200)
-            (videos))
+      (let* ((size (the integer *frame-size*))
+             (videos))
+        (declare (boolean videos))
         (cv:with-ipl-images
             ((buf (cv:size size size) cv:+ipl-depth-8u+ 3)
              (fin (cv:size size size) cv:+ipl-depth-8u+ 3)
              (emp (cv:size size size) cv:+ipl-depth-8u+ 1))
           (loop
-             :for video :in *video-queue*
-             :do
+             :for video :in *video-queue* :do
              (let ((is-visible (cvideo-is-visible video))
                    (is-negative (cvideo-is-negative video))
                    (is-freezed (cvideo-is-freezed video))
@@ -156,12 +157,13 @@
                    (ypos (cvideo-ypos video))
                    (restart-pos (cvideo-restart-pos video)))
                (when is-visible
-                 (unless is-freezed
+                 (when (not is-freezed)
                    (setf (cvideo-pos video) 0))
                  (if (= repeat 1)
                      (cv:resize (get-frame capture restart-pos pos) buf)
                      (cv:with-ipl-images
-                         ((small (cv:size 50 50) cv:+ipl-depth-8u+ 3))
+                         ((small (cv:size (/ size repeat) (/ size repeat))
+                                 cv:+ipl-depth-8u+ 3))
                        (cv:resize (get-frame capture restart-pos pos) small)
                        (cv:repeat small buf))) 
                  ;; rotation, scale, move
