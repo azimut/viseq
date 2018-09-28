@@ -14,7 +14,8 @@
   (flip -2 :type integer)
   (glitch NIL :type boolean)
   (hsv NIL :type boolean)
-  (pos 0 :type integer)
+  (pos 0 :type unsigned-byte)
+  (restart-pos 0 :type unsigned-byte)
   (repeat 1 :type unsigned-byte)
   (rotation 0f0 :type single-float)
   (scale 1f0 :type single-float)
@@ -59,35 +60,36 @@
 (defun push-cvideo
     (name file
      &key
-       hsv glitch (flip -2 flip-p) (erode 0) (repeat 1)
+       hsv glitch (flip -2) (erode 0) (repeat 1)
        is-negative
        is-freezed
+       (restart-pos 0)
        (pos 0)
        (rotation 0f0)
        (scale 1f0) (ypos 0) (xpos 0))
   (declare (keyword name) (string file)
            (type single-float rotation scale)
-           (type unsigned-byte repeat erode xpos ypos)
+           (type unsigned-byte repeat erode xpos ypos restart-pos pos)
            (type (integer -2 1) flip)
            (boolean glitch hsv is-negative is-freezed))
   (assert (uiop:file-exists-p file))
   ;; NOT add if already if queue
   (let ((obj (queue-find name)))
     (if obj
-        (progn
-          (setf (cvideo-is-visible obj) T
-                (cvideo-is-negative obj) is-negative
-                (cvideo-is-freezed obj) is-freezed                
-                (cvideo-erode obj) erode
-                (cvideo-flip obj) flip
-                (cvideo-glitch obj) glitch
-                (cvideo-hsv obj) hsv
-                (cvideo-pos obj) pos
-                (cvideo-repeat obj) repeat
-                (cvideo-rotation obj) rotation
-                (cvideo-scale obj) scale
-                (cvideo-xpos obj) xpos
-                (cvideo-ypos obj) ypos))
+        (setf (cvideo-is-visible obj) T
+              (cvideo-is-negative obj) is-negative
+              (cvideo-is-freezed obj) is-freezed                
+              (cvideo-erode obj) erode
+              (cvideo-flip obj) flip
+              (cvideo-glitch obj) glitch
+              (cvideo-hsv obj) hsv
+              (cvideo-pos obj) pos
+              (cvideo-restart-pos obj) restart-pos              
+              (cvideo-repeat obj) repeat
+              (cvideo-rotation obj) rotation
+              (cvideo-scale obj) scale
+              (cvideo-xpos obj) xpos
+              (cvideo-ypos obj) ypos)
         (let ((cvideo
                (make-cvideo
                 :name name
@@ -95,9 +97,11 @@
                 :is-freezed is-freezed
                 :capture (cv:create-file-capture file)
                 :erode erode
-                :flip flip                
+                :restart-pos restart-pos
+                :flip flip
                 :glitch glitch
                 :hsv hsv
+                :pos pos
                 :repeat repeat
                 :rotation rotation
                 :scale scale
@@ -149,15 +153,16 @@
                    (rotation (cvideo-rotation video))
                    (scale (cvideo-scale video))
                    (xpos (cvideo-xpos video))
-                   (ypos (cvideo-ypos video)))
+                   (ypos (cvideo-ypos video))
+                   (restart-pos (cvideo-restart-pos video)))
                (when is-visible
                  (unless is-freezed
                    (setf (cvideo-pos video) 0))
                  (if (= repeat 1)
-                     (cv:resize (get-frame capture 0 pos) buf)
+                     (cv:resize (get-frame capture restart-pos pos) buf)
                      (cv:with-ipl-images
                          ((small (cv:size 50 50) cv:+ipl-depth-8u+ 3))
-                       (cv:resize (get-frame capture 0 pos) small)
+                       (cv:resize (get-frame capture restart-pos pos) small)
                        (cv:repeat small buf))) 
                  ;; rotation, scale, move
                  (when (or (> rotation 0f0)

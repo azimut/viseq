@@ -35,5 +35,6 @@ You can recompile the (render) function to test things out there in real-time.
 - Add continuable
 - Effects (? Face recognition(?
 - Multiple windows support
+- OSC (?
 - Might be write a DSL to define different orders of when an effect is applied (?
 - Frame manipulations (those are hard as there is no numpy for Lisp and need to be written on lisp through cffi calls)
