@@ -44,15 +44,15 @@
 
 ;;--------------------------------------------------
 
-(defun skip-to (capture seconds)
+(defun skip-to (capture frame)
   "skip video capture to seconds"
   (declare (optimize (speed 3))
            (type cffi:foreign-pointer capture)
-           (type integer seconds))
+           (type fixnum frame))
   (cv:set-capture-property
    capture
-   cv:+cap-prop-pos-msec+
-   (* 1000 seconds))
+   cv:+cap-prop-pos-frame+
+   frame)
   NIL)
 
 (defun current-pos (capture)
@@ -186,16 +186,28 @@
     (when connection
       (swank::handle-requests connection t))))
 
+
+;; FIXME
 (defun get-frame
-    (capture &optional (restart-frame 0) (skip-to-frame 0))
+    (capture
+     &optional (restart-frame 0) (stop-frame most-positive-fixnum)
+       (skip-to-frame 0))
   (declare (type cffi:foreign-pointer capture)
-           (type fixnum restart-frame skip-to-frame)
+           (type fixnum stop-frame restart-frame skip-to-frame)
            (optimize (speed 3) (safety 0) (debug 0)))
-  (let ((frame (if (= 0 skip-to-frame)
-                   (cv:query-frame capture)
-                   (progn
-                     (skip-to capture skip-to-frame)
-                     (cv:query-frame capture)))))
+  (let* ((current-frame
+          (the double-float
+               (cv:get-capture-property capture cv:+cap-prop-pos-frame+)))
+         (frame
+          (cond
+            ((> current-frame stop-frame)
+             (skip-to capture restart-frame)
+             (cv:query-frame capture))
+            ((= 0 skip-to-frame)
+             (cv:query-frame capture))
+            (t
+             (skip-to capture skip-to-frame)
+             (cv:query-frame capture)))))
     (if (cffi:null-pointer-p frame)
         (progn
           (skip-to capture restart-frame)
