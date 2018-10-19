@@ -6,4 +6,5 @@
            #:delete-ctext
            #:reset
            #:show-videos
+           #:wait-key
            #:render))

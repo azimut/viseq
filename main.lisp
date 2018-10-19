@@ -2,6 +2,7 @@
 
 (defvar *video-queue* NIL)
 (defvar *text-queue* NIL)
+(defvar *wait-key* 30)
 (defvar *rotation-matrix* (cv:create-mat 2 3 5))
 (defparameter *frame-size* 100)
 
@@ -61,6 +62,10 @@
                 :test (lambda (x y) (eq x (ctext-name y)))))
   NIL)
 
+(defun wait-key (n)
+  (declare (unsigned-byte n))
+  (setf *wait-key* n))
+
 (defun push-cvideo
     (name file
      &key
@@ -71,20 +76,21 @@
        (stop-pos most-positive-double-float stop-pos-p)
        (restart-pos 0 restart-pos-p)
        (pos 0 pos-p)
+       (is-visible T is-visible-p)
        (rotation 0f0 rotation-p)
        (scale 1f0 scale-p) (ypos 0 ypos-p) (xpos 0 xpos-p))
   (declare (keyword name) (string file)
            (type single-float rotation scale)
            (type unsigned-byte repeat erode xpos ypos restart-pos pos)
            (type (member -2 -1 0 1) flip)
-           (boolean glitch hsv is-negative is-freezed))
+           (boolean glitch hsv is-negative is-freezed is-visible))
   (assert (uiop:file-exists-p file))
   ;; NOT add if already if queue
   (setf stop-pos (coerce stop-pos 'double-float))
   (let ((obj (queue-find name)))
     (if obj
         (progn
-          (setf (cvideo-is-visible obj) T)
+          (and is-visible-p (setf (cvideo-is-visible obj) is-visible))
           (and is-negative-p (setf (cvideo-is-negative obj) is-negative))
           (and is-freezed-p (setf (cvideo-is-freezed obj) is-freezed))
           (and erode-p (setf (cvideo-erode obj) erode))
@@ -139,7 +145,7 @@
 
 (defun render ()
   (declare (optimize (speed 3) (debug 0) (safety 0)))
-  (if (= (the integer (cv:wait-key 30)) 27)
+  (if (= (the integer (cv:wait-key (the unsigned-byte *wait-key*))) 27)
       'done
       (let* ((size (the integer *frame-size*))
              (videos))
